@@ -36,3 +36,18 @@ Local preview: `python3 build.py && cd dist && python3 -m http.server 8000` (the
 5. Send one test lead from the live form and confirm the email arrives.
 6. Google Ads: set `GADS_ID` and `GADS_LEAD_LABEL` in `build.py`, push, and the thank-you page fires the conversion.
    Submit `/sitemap.xml` in Search Console.
+
+## Search and AI visibility settings (top of build.py)
+
+- `SITE_URL`: leave blank. Vercel's production domain is used for canonicals, sitemap and schema, and switches
+  to your custom domain automatically once you add it. Preview deployments get `noindex`.
+- `REVIEWER`: fill in Jonathan's name, credentials, firm, URL and a one-line bio. That adds "Tax content reviewed by"
+  to every page, a reviewer section on /about/, and `reviewedBy` in the structured data.
+- `OPERATOR_LINKS`, `OPERATOR_LICENCE`, `HEADSHOT`: your LinkedIn and licence; they appear on /about/ and in the
+  Person schema.
+- `LAST_REVIEWED`: bump when you re-check content (a page can override with `reviewed="YYYY-MM-DD"`). Drives the
+  visible "Last reviewed" line and sitemap `lastmod`.
+- `GSC_VERIFY`, `BING_VERIFY`: verification codes for Google Search Console and Bing Webmaster Tools.
+- `INDEXNOW_KEY`: the key file is served at `/<key>.txt` so new URLs can be pinged to Bing via IndexNow.
+- Sources: CRA citations per page live in `SRC` / `SOURCES` in build.py.
+- Share image: `static/og.png`, rendered from `scripts/og.html`. Regenerate it if the brand name changes.

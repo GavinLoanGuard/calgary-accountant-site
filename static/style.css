@@ -294,3 +294,11 @@ input[type=checkbox]{flex:none;width:1.15rem;height:1.15rem;margin:.15rem 0 0;ac
   h1,h2,h3{break-after:avoid}
   .tbl tr,.num li,.qa{break-inside:avoid}
 }
+
+/* review line, sources */
+.meta{font-size:.8125rem;color:var(--mute);margin:1.75rem 0 0}
+.meta a{color:var(--mute)}
+.sources{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink)}
+.sources li{padding:.85rem 0;border-bottom:1px solid var(--rule);font-size:.95rem}
+.sources li:last-child{border-bottom:3px double var(--ink)}
+.sec-sources{padding:clamp(2.25rem,4vw,3.25rem) 0}

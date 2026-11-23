@@ -11,7 +11,8 @@ from html import escape
 # ----------------------------------------------------------------- CONFIG
 BRAND = "Calgary Accountant Match"          # placeholder - change when the domain is chosen
 WORDMARK = ("Calgary", "Accountant Match")  # small caps line, serif line
-DOMAIN = "https://www.example.ca"           # placeholder - the real domain, no trailing slash
+SITE_URL = ""                               # optional override, e.g. "https://www.yourdomain.ca" (no trailing slash).
+                                            # Left blank, Vercel's production domain is used automatically.
 PHONE = ""                                  # optional, e.g. "(403) 555-0100"
 CONTACT_EMAIL = ""                          # optional, shown on privacy page and 404, e.g. "hello@yourdomain.ca"
 OPERATOR = "Gavin Dyer"
@@ -19,9 +20,27 @@ OPERATOR_NOTE = ("This site is operated by Gavin Dyer, an independent Alberta-li
                  "living-benefits insurance broker. It is an introduction service, not an "
                  "accounting firm or a law firm.")
 HEADSHOT = ""                               # optional, e.g. "/img/gavin.jpg" (put the file in static/img/)
+OPERATOR_LINKS = []                         # profiles that confirm who you are, e.g. ["https://www.linkedin.com/in/..."]
+OPERATOR_LICENCE = ""                       # optional, e.g. "Insurance Council of Alberta licence #123456"
+REVIEWER = dict(                            # the CPA who reviews the tax content. Nothing shows until name is set.
+    name="",                                # e.g. "Jonathan Smith"
+    credentials="CPA",                      # e.g. "CPA, CA"
+    firm="",                                # e.g. "Smith & Co. Chartered Professional Accountants"
+    url="",                                 # firm or LinkedIn page
+    bio="",                                 # one or two sentences, in his words
+)
+LAST_REVIEWED = "2026-11-23"                # default review date for the content pages (YYYY-MM-DD)
+GSC_VERIFY = ""                             # Google Search Console HTML-tag verification code (content="...")
+BING_VERIFY = ""                            # Bing Webmaster Tools verification code (msvalidate.01)
+INDEXNOW_KEY = "7c1e4b9a2f6d48e3a5b0c9d17e2f8a64"  # served at /<key>.txt so Bing/IndexNow accept URL pings
 GADS_ID = ""                                # e.g. "AW-1234567890" - leave blank until ready
 GADS_LEAD_LABEL = ""                        # e.g. "AW-1234567890/AbCdEf" for the thank-you conversion
 # ------------------------------------------------------------------------
+
+_vercel_prod = os.environ.get("VERCEL_PROJECT_PRODUCTION_URL", "")
+DOMAIN = (SITE_URL or (f"https://{_vercel_prod}" if _vercel_prod else "https://www.example.ca")).rstrip("/")
+IS_PREVIEW = os.environ.get("VERCEL_ENV", "production") != "production"   # preview builds get noindex
+ORG_ID, PERSON_ID, SITE_ID = DOMAIN + "/#org", DOMAIN + "/#gavin", DOMAIN + "/#website"
 
 OUT = "dist"
 STATIC = "static"
@@ -41,9 +60,11 @@ def head(title, desc, path, ld=None, noindex=False):
         gtag = (f'<script async src="https://www.googletagmanager.com/gtag/js?id={GADS_ID}"></script>'
                 '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}'
                 f'gtag("js",new Date());gtag("config","{GADS_ID}");</script>')
-    robots = '<meta name="robots" content="noindex,follow">' if noindex else ""
+    robots = '<meta name="robots" content="noindex,follow">' if (noindex or IS_PREVIEW) else ""
+    verify = ((f'<meta name="google-site-verification" content="{escape(GSC_VERIFY)}">' if GSC_VERIFY else "") +
+              (f'<meta name="msvalidate.01" content="{escape(BING_VERIFY)}">' if BING_VERIFY else ""))
     lds = "".join('<script type="application/ld+json">' + json.dumps(x, ensure_ascii=False) + "</script>"
-                  for x in (ld or []))
+                  for x in [ld_entities()] + (ld or []))
     return f"""<!doctype html>
 <html lang="en-CA"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -52,7 +73,10 @@ def head(title, desc, path, ld=None, noindex=False):
 <link rel="canonical" href="{DOMAIN}{path}">{robots}
 <meta property="og:title" content="{escape(title)}"><meta property="og:description" content="{escape(desc)}">
 <meta property="og:type" content="website"><meta property="og:url" content="{DOMAIN}{path}">
-<meta property="og:locale" content="en_CA"><meta name="theme-color" content="#f3efe6">
+<meta property="og:locale" content="en_CA"><meta property="og:site_name" content="{escape(BRAND)}">
+<meta property="og:image" content="{DOMAIN}/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{escape(BRAND)}: introductions to accountants for incorporated professionals in Calgary">
+<meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#f3efe6">{verify}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" href="/fonts/newsreader-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/plex-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -81,7 +105,7 @@ def footer():
 <p>Introductions to accountants for incorporated professionals and owner-managers in Calgary.</p>{ph}
 <p><a class="foot-req" href="{FORM}">Request an introduction</a></p></div>
 <div><p class="foot-h">Situations</p><ul>{svc}</ul></div>
-<div><p class="foot-h">The service</p><ul><li><a href="/how-it-works/">How it works</a></li>
+<div><p class="foot-h">The service</p><ul><li><a href="/how-it-works/">How it works</a></li><li><a href="/about/">About and editorial standards</a></li>
 <li><a href="{FORM}">Request an introduction</a></li><li><a href="/privacy/">Privacy and consent</a></li></ul></div>
 </div>
 <div class="fine"><p>{escape(OPERATOR_NOTE)} Everything on this site is general information, not tax, legal,
@@ -167,6 +191,72 @@ def ld_crumbs(name, path):
     return {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
         {"@type": "ListItem", "position": 1, "name": "Home", "item": DOMAIN + "/"},
         {"@type": "ListItem", "position": 2, "name": name, "item": DOMAIN + path}]}
+
+
+def nice_date(iso):
+    import datetime
+    d = datetime.date.fromisoformat(iso)
+    return d.strftime("%B %Y")
+
+
+def reviewer_name():
+    r = REVIEWER
+    return f'{r["name"]}, {r["credentials"]}' if r["credentials"] else r["name"]
+
+
+def ld_entities():
+    """Organization + Person + WebSite graph, included on every page so search engines and AI tools
+    can tie the site to a real, accountable operator."""
+    org = {"@type": "Organization", "@id": ORG_ID, "name": BRAND, "url": DOMAIN + "/",
+           "logo": DOMAIN + "/apple-touch-icon.png",
+           "description": "An introduction service connecting incorporated professionals and owner-managers in "
+                          "Calgary with accountants. Not an accounting firm.",
+           "areaServed": {"@type": "City", "name": "Calgary",
+                          "containedInPlace": {"@type": "AdministrativeArea", "name": "Alberta"}},
+           "founder": {"@id": PERSON_ID}}
+    if CONTACT_EMAIL: org["email"] = CONTACT_EMAIL
+    if PHONE: org["telephone"] = PHONE
+    person = {"@type": "Person", "@id": PERSON_ID, "name": OPERATOR, "url": DOMAIN + "/about/",
+              "jobTitle": "Licensed life and living-benefits insurance broker", "worksFor": {"@id": ORG_ID},
+              "knowsAbout": ["Corporate-owned life insurance", "Living-benefits insurance",
+                             "Incorporated professionals", "Owner-managed corporations"]}
+    if OPERATOR_LINKS: person["sameAs"] = OPERATOR_LINKS
+    if HEADSHOT: person["image"] = DOMAIN + HEADSHOT
+    site = {"@type": "WebSite", "@id": SITE_ID, "url": DOMAIN + "/", "name": BRAND,
+            "publisher": {"@id": ORG_ID}, "inLanguage": "en-CA"}
+    return {"@context": "https://schema.org", "@graph": [org, person, site]}
+
+
+def ld_reviewer():
+    if not REVIEWER["name"]:
+        return None
+    r = {"@type": "Person", "name": REVIEWER["name"]}
+    if REVIEWER["credentials"]: r["honorificSuffix"] = REVIEWER["credentials"]
+    if REVIEWER["firm"]: r["worksFor"] = {"@type": "Organization", "name": REVIEWER["firm"]}
+    if REVIEWER["url"]: r["url"] = REVIEWER["url"]
+    return r
+
+
+def ld_webpage(p, path, sources):
+    reviewed = p.get("reviewed", LAST_REVIEWED)
+    d = {"@context": "https://schema.org", "@type": "WebPage", "@id": DOMAIN + path + "#page",
+         "url": DOMAIN + path, "name": strip_tags(p["title"]), "description": p["desc"], "inLanguage": "en-CA",
+         "isPartOf": {"@id": SITE_ID}, "publisher": {"@id": ORG_ID}, "author": {"@id": PERSON_ID},
+         "dateModified": reviewed, "lastReviewed": reviewed,
+         "citation": [{"@type": "CreativeWork", "name": t, "url": u} for t, u in sources]}
+    rv = ld_reviewer()
+    if rv: d["reviewedBy"] = rv
+    return d
+
+
+def review_line(p):
+    txt = f"Last reviewed {nice_date(p.get('reviewed', LAST_REVIEWED))}"
+    if REVIEWER["name"]:
+        who = escape(reviewer_name())
+        if REVIEWER["url"]:
+            who = f'<a href="{escape(REVIEWER["url"])}" rel="noopener">{who}</a>'
+        txt += f' · Tax content reviewed by {who}'
+    return f'<p class="meta">{txt} · <a href="/about/#standards">Editorial standards</a></p>'
 
 
 def write(path, html):
@@ -452,6 +542,36 @@ PAGES = [
 ]
 BY_SLUG = {p["slug"]: p for p in PAGES}
 
+CRA = "https://www.canada.ca/en/revenue-agency"
+SRC = {
+    "sbd": ("CRA: Small business deduction rules and passive investment income",
+            f"{CRA}/programs/about-canada-revenue-agency-cra/federal-government-budgets/budget-2018-equality-growth-strong-middle-class/passive-investment-income/small-business-deduction-rules.html"),
+    "tosi": ("CRA: Income sprinkling (tax on split income), frequently asked questions",
+             f"{CRA}/programs/about-canada-revenue-agency-cra/federal-government-budgets/income-sprinkling/frequently-asked-questions-income-sprinkling.html"),
+    "psb": ("CRA: What is a personal services business",
+            f"{CRA}/services/tax/businesses/topics/corporations/corporation-income-tax-return/tax-implications-personal-services-business/what-psb.html"),
+    "psb2": ("CRA: Determine if a worker’s corporation is carrying on a personal services business",
+             f"{CRA}/services/tax/businesses/topics/corporations/corporation-income-tax-return/tax-implications-personal-services-business/factors-psb.html"),
+    "t2": ("CRA: T2 Corporation Income Tax Guide, filing and payment deadlines",
+           f"{CRA}/services/forms-publications/publications/t4012/t2-corporation-income-tax-guide-before-you-start.html"),
+    "gst": ("CRA: General Information for GST/HST Registrants (RC4022), small suppliers",
+            f"{CRA}/services/forms-publications/publications/rc4022/general-information-gst-hst-registrants.html"),
+    "rac": ("CRA: About Represent a Client", f"{CRA}/services/e-services/represent-a-client/about-represent-a-client.html"),
+    "auth": ("CRA: Authorize a representative", f"{CRA}/services/tax/representative-authorization/how.html"),
+    "cg": ("CRA: Capital Gains guide (T4037), qualified small business corporation shares",
+           f"{CRA}/services/forms-publications/publications/t4037/capital-gains.html"),
+}
+SOURCES = {
+    "accountant-for-doctors-calgary": ["sbd", "tosi"],
+    "accountant-for-consultants-calgary": ["psb", "psb2"],
+    "corporate-tax-accountant-calgary": ["t2", "gst"],
+    "business-tax-planning-calgary": ["cg", "sbd"],
+    "holding-company-accountant-calgary": ["sbd", "cg"],
+    "incorporation-tax-setup-calgary": ["gst", "t2"],
+    "small-business-accountant-calgary": ["gst", "t2"],
+    "change-accountants-calgary": ["rac", "auth"],
+}
+
 STRUCTURE = """<figure class="struct"><div class="struct-row">
 <div class="node"><strong>You</strong><span>Owner and shareholder</span></div><div class="link" aria-hidden="true"></div>
 <div class="node"><strong>Holding company</strong><span>Holds surplus cash and investments</span></div><div class="link" aria-hidden="true"></div>
@@ -488,11 +608,11 @@ def render_block(n, b):
     raise ValueError(kind)
 
 
-def page_hero(crumb, h1, lead):
+def page_hero(crumb, h1, lead, meta=""):
     c = (f'<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span>'
          f'<span aria-current="page">{escape(crumb)}</span></nav>') if crumb else ""
     return f"""<section class="phero"><div class="wrap">{c}<h1>{h1}</h1><p class="lead">{lead}</p>
-<p class="phero-cta"><a class="btn" href="{FORM}">Request an introduction</a><span>Free. About two minutes.</span></p></div></section>"""
+<p class="phero-cta"><a class="btn" href="{FORM}">Request an introduction</a><span>Free. About two minutes.</span></p>{meta}</div></section>"""
 
 
 def build_service(p):
@@ -504,9 +624,15 @@ def build_service(p):
     n += 1
     body += sec(n, "Questions", h2("") + qa(p["faqs"]) +
                 '<p class="note">General information only, not tax, legal or accounting advice.</p>')
+    sources = [SRC[k] for k in SOURCES.get(p["slug"], [])]
+    if sources:
+        n += 1
+        lis = "".join(f'<li><a href="{u}" rel="noopener">{escape(t)}</a></li>' for t, u in sources)
+        body += sec(n, "Sources", f'<ul class="sources">{lis}</ul><p class="note">Rules change. Your accountant '
+                    'will confirm how the current rules apply to you.</p>', "sec-sources")
     html = head(strip_tags(p["title"]) + f" | {BRAND}", p["desc"], path,
-                [ld_faq(p["faqs"]), ld_crumbs(strip_tags(p["nav"]), path)])
-    html += header(path) + page_hero(strip_tags(p["nav"]), p["h1"], p["lead"]) + body
+                [ld_webpage(p, path, sources), ld_faq(p["faqs"]), ld_crumbs(strip_tags(p["nav"]), path)])
+    html += header(path) + page_hero(strip_tags(p["nav"]), p["h1"], p["lead"], review_line(p)) + body
     html += closer(p["closer"]) + related(p["related"]) + footer()
     write(path, html)
 
@@ -659,7 +785,8 @@ def build_how():
         'owner-managers on corporate insurance and living-benefits planning. Those clients ask, often, whether he knows a '
         'good accountant. This site is the organised version of that answer.</p>'
         '<p>Because he is an insurance broker, you will always be told plainly when anything insurance-related is on offer. '
-        'It’s optional and separate, and you can ignore it.</p></div>' + headshot_html() + "</div>")
+        'It’s optional and separate, and you can ignore it.</p><p><a href="/about/">More about Gavin and how the '
+        'content on this site is checked</a></p></div>' + headshot_html() + "</div>")
     html += sec(4, "How we’re paid", h2("You don’t pay us") +
         "<p>There’s no fee to you for an introduction. Some accountants we introduce people to may also refer clients to "
         "Gavin’s insurance practice. If there is ever a financial arrangement with the firm we suggest, you’ll be told "
@@ -692,6 +819,70 @@ def build_privacy():
     write(path, html)
 
 
+def build_about():
+    path = "/about/"
+    links = "".join(f'<li><a href="{escape(u)}" rel="me noopener">{escape(u.split("//")[-1].rstrip("/"))}</a></li>'
+                    for u in OPERATOR_LINKS)
+    lic = f"<p>{escape(OPERATOR_LICENCE)}.</p>" if OPERATOR_LICENCE else ""
+    op = (f'<div class="who"><div><p>{escape(BRAND)} is run by {escape(OPERATOR)}, an independent, Alberta-licensed '
+          'life and living-benefits insurance broker. Gavin works with incorporated professionals and owner-managers, '
+          'including physicians, consultants and business owners, on corporate insurance and living-benefits planning.</p>'
+          '<p>His clients often ask whether he knows a good accountant. This site is the organised version of that '
+          f'answer. It is not an accounting firm and does not give tax advice.</p>{lic}'
+          + (f'<ul class="dash">{links}</ul>' if links else "") + f'</div>{headshot_html()}</div>')
+    body = sec(1, "Who runs this", h2(escape(OPERATOR)) + op)
+    n = 1
+    if REVIEWER["name"]:
+        n += 1
+        firm = f' of {escape(REVIEWER["firm"])}' if REVIEWER["firm"] else ""
+        url = f'<p><a href="{escape(REVIEWER["url"])}" rel="noopener">{escape(REVIEWER["url"].split("//")[-1].rstrip("/"))}</a></p>' if REVIEWER["url"] else ""
+        bio = f'<p>{escape(REVIEWER["bio"])}</p>' if REVIEWER["bio"] else ""
+        body += sec(n, "Tax content review", h2(escape(reviewer_name())) +
+                    f'<p>The tax content on this site is reviewed by {escape(reviewer_name())}{firm}.</p>{bio}{url}')
+    n += 1
+    std = [
+        "Every page is written for incorporated professionals and owner-managers in Calgary, in plain language.",
+        "Statements about tax rules are checked against Canada Revenue Agency publications, which are linked at the foot of each page.",
+    ] + (["Tax content is reviewed by a Chartered Professional Accountant before it is published."] if REVIEWER["name"] else []) + [
+        "Each page shows the date it was last reviewed. Pages are re-checked at least once a year and whenever the rules they describe change.",
+        "Content is general information, not advice. Specific rates and thresholds are only quoted where they are long-standing and published by the CRA.",
+        "Nothing on the site is paid placement, and no testimonials or reviews are shown.",
+    ]
+    contact = (f' Email <a href="mailto:{escape(CONTACT_EMAIL)}">{escape(CONTACT_EMAIL)}</a>.' if CONTACT_EMAIL
+               else " Reply to any message from us.")
+    body += sec(n, "Editorial standards", '<h2 id="standards">How the content is written and checked</h2>' + dash(std) +
+                f'<p class="note">Spotted something wrong or out of date? Tell us and we’ll fix it.{contact}</p>')
+    about_ld = {"@context": "https://schema.org", "@type": "AboutPage", "@id": DOMAIN + path + "#page",
+                "url": DOMAIN + path, "name": f"About {BRAND}", "mainEntity": {"@id": PERSON_ID},
+                "isPartOf": {"@id": SITE_ID}, "dateModified": LAST_REVIEWED}
+    html = head(f"About {BRAND} and Our Editorial Standards", f"Who runs {BRAND}, who reviews the tax content, and how "
+                "pages are written, sourced and kept up to date.", path, [about_ld, ld_crumbs("About", path)])
+    html += header(path) + page_hero("About", "Who’s behind this site, and how it’s written",
+        "An insurance broker who works with incorporated professionals, introducing them to accountants. "
+        "Here is who that is, and how the information on these pages is checked.")
+    html += body + closer("When you’re ready, it takes about two minutes.") + footer()
+    write(path, html)
+
+
+def build_llms():
+    lines = [f"# {BRAND}", "",
+             f"> An introduction service connecting incorporated professionals and owner-managers in Calgary, Alberta, "
+             f"with accountants. Operated by {OPERATOR}, an Alberta-licensed life and living-benefits insurance broker. "
+             "Not an accounting firm; content is general information, not tax advice.", "",
+             "Key facts:", "- Free to the person asking; the accounting firm sets and bills its own fees.",
+             "- Details are shared with an accounting firm only after the person approves an introduction to that named firm.",
+             "- Focus: physicians with professional corporations, incorporated consultants and contractors, owner-managed corporations.",
+             "", "## Situations"]
+    lines += [f"- [{strip_tags(p['nav'])}]({DOMAIN}/{p['slug']}/): {p['desc']}" for p in PAGES]
+    lines += ["", "## About the service",
+              f"- [How it works]({DOMAIN}/how-it-works/): the introduction process and how the service is paid",
+              f"- [About and editorial standards]({DOMAIN}/about/): who runs the site and how content is checked",
+              f"- [Request an introduction]({DOMAIN}{FORM}): the intake form",
+              f"- [Privacy and consent]({DOMAIN}/privacy/)", ""]
+    with open(os.path.join(OUT, "llms.txt"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+
 def build_404():
     mail = f' or email <a href="mailto:{escape(CONTACT_EMAIL)}">{escape(CONTACT_EMAIL)}</a>' if CONTACT_EMAIL else ""
     html = head(f"Page not found | {BRAND}", "This page doesn't exist.", "/404/", noindex=True)
@@ -709,9 +900,13 @@ def build_404():
 
 
 def build_extras():
-    urls = ["/", FORM, "/how-it-works/", "/privacy/"] + [f"/{p['slug']}/" for p in PAGES]
+    urls = [(u, LAST_REVIEWED) for u in ["/", FORM, "/how-it-works/", "/about/", "/privacy/"]] + \
+           [(f"/{p['slug']}/", p.get("reviewed", LAST_REVIEWED)) for p in PAGES]
     sm = ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-          "".join(f"<url><loc>{DOMAIN}{u}</loc></url>\n" for u in urls) + "</urlset>\n")
+          "".join(f"<url><loc>{DOMAIN}{u}</loc><lastmod>{d}</lastmod></url>\n" for u, d in urls) + "</urlset>\n")
+    if INDEXNOW_KEY:
+        with open(os.path.join(OUT, f"{INDEXNOW_KEY}.txt"), "w") as f:
+            f.write(INDEXNOW_KEY)
     with open(os.path.join(OUT, "sitemap.xml"), "w") as f:
         f.write(sm)
     with open(os.path.join(OUT, "robots.txt"), "w") as f:
@@ -787,7 +982,7 @@ if __name__ == "__main__":
     build_home()
     for p in PAGES:
         build_service(p)
-    build_form(); build_thanks(); build_how(); build_privacy(); build_404(); build_extras()
+    build_form(); build_thanks(); build_how(); build_about(); build_privacy(); build_404(); build_extras(); build_llms()
     build_fonts(); build_touch_icon()
     n = sum(len(f) for _, _, f in os.walk(OUT))
     print(f"built {n} files into {OUT}/")
