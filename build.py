@@ -54,8 +54,8 @@ def head(title, desc, path, ld=None, noindex=False):
 <meta property="og:type" content="website"><meta property="og:url" content="{DOMAIN}{path}">
 <meta property="og:locale" content="en_CA"><meta name="theme-color" content="#f3efe6">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="preload" href="/fonts/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/newsreader-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/plex-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/style.css">{gtag}{lds}
 </head><body><a class="skip" href="#main">Skip to content</a>"""
 
@@ -718,6 +718,69 @@ def build_extras():
         f.write(f"User-agent: *\nAllow: /\nDisallow: /thank-you/\nSitemap: {DOMAIN}/sitemap.xml\n")
 
 
+FONT_SOURCES = {  # output name -> file inside node_modules (pinned in package.json)
+    "newsreader-normal.woff2": "@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2",
+    "newsreader-italic.woff2": "@fontsource-variable/newsreader/files/newsreader-latin-opsz-italic.woff2",
+    "plex-400-normal.woff2": "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2",
+    "plex-400-italic.woff2": "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-italic.woff2",
+    "plex-500-normal.woff2": "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-500-normal.woff2",
+    "plex-600-normal.woff2": "@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2",
+}
+
+
+def build_fonts():
+    """Copy fonts from node_modules into dist/fonts, subset to the characters the site uses when
+    fonttools is available (about 105 KB instead of 375 KB). Run after the pages are written."""
+    import glob, re
+    out = os.path.join(OUT, "fonts")
+    os.makedirs(out, exist_ok=True)
+    try:
+        from fontTools.ttLib import TTFont
+        from fontTools.varLib import instancer
+        from fontTools import subset
+    except ImportError:
+        TTFont = None
+        print("fonttools not installed: copying full font files (run: pip install fonttools brotli)")
+    used = "".join(open(f, encoding="utf-8").read() for f in glob.glob(f"{OUT}/**/*.html", recursive=True))
+    chars = set(re.sub(r"<[^>]+>", "", used)) | {chr(c) for c in range(32, 127)} | set("’‘“”–—…©·×é")
+    text = "".join(sorted(c for c in chars if ord(c) >= 32))
+    for name, src in FONT_SOURCES.items():
+        src = os.path.join("node_modules", src)
+        if not os.path.exists(src):
+            raise SystemExit(f"missing {src}: run npm install first")
+        dst = os.path.join(out, name)
+        if TTFont is None:
+            shutil.copyfile(src, dst); continue
+        f = TTFont(src)
+        if name.startswith("newsreader"):
+            f = instancer.instantiateVariableFont(f, {"opsz": 36, "wght": (380, 460)})
+        o = subset.Options(); o.flavor = "woff2"; o.name_IDs = ["*"]
+        o.layout_features = ["kern", "liga", "onum", "tnum", "lnum", "pnum"]
+        sub = subset.Subsetter(o); sub.populate(text=text); sub.subset(f)
+        f.flavor = "woff2"; f.save(dst)
+
+
+def build_touch_icon():
+    """180x180 PNG version of favicon.svg (ink square, two paper lines, two brick lines), drawn without libraries."""
+    import struct, zlib
+    W = 180; ink, paper, brick = b"\x1c\x21\x1f", b"\xf3\xef\xe6", b"\xd0\x62\x3f"
+    def colour(y):
+        for y0, c in ((53, paper), (81, paper), (118, brick), (138, brick)):
+            if y0 <= y < y0 + 9:
+                return c
+        return None
+    rows = b""
+    for y in range(W):
+        c = colour(y)
+        rows += b"\x00" + b"".join((c if (c and 36 <= x < 144) else ink) for x in range(W))
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", W, W, 8, 2, 0, 0, 0)) +
+           chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b""))
+    with open(os.path.join(OUT, "apple-touch-icon.png"), "wb") as fh:
+        fh.write(png)
+
+
 if __name__ == "__main__":
     shutil.rmtree(OUT, ignore_errors=True)
     shutil.copytree(STATIC, OUT)
@@ -725,5 +788,6 @@ if __name__ == "__main__":
     for p in PAGES:
         build_service(p)
     build_form(); build_thanks(); build_how(); build_privacy(); build_404(); build_extras()
+    build_fonts(); build_touch_icon()
     n = sum(len(f) for _, _, f in os.walk(OUT))
     print(f"built {n} files into {OUT}/")

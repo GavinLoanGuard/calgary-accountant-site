@@ -1,11 +1,11 @@
 /* See DESIGN.md. The ledger: paper, ink, hairline rules, a double rule under totals. */
 
-@font-face{font-family:"Newsreader";src:url(/fonts/newsreader-latin-opsz-normal.woff2) format("woff2");font-weight:200 800;font-style:normal;font-display:swap}
-@font-face{font-family:"Newsreader";src:url(/fonts/newsreader-latin-opsz-italic.woff2) format("woff2");font-weight:200 800;font-style:italic;font-display:swap}
-@font-face{font-family:"Plex";src:url(/fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:"Plex";src:url(/fonts/ibm-plex-sans-latin-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
-@font-face{font-family:"Plex";src:url(/fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2");font-weight:500;font-style:normal;font-display:swap}
-@font-face{font-family:"Plex";src:url(/fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2");font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:"Newsreader";src:url(/fonts/newsreader-normal.woff2) format("woff2");font-weight:380 460;font-style:normal;font-display:swap}
+@font-face{font-family:"Newsreader";src:url(/fonts/newsreader-italic.woff2) format("woff2");font-weight:380 460;font-style:italic;font-display:swap}
+@font-face{font-family:"Plex";src:url(/fonts/plex-400-normal.woff2) format("woff2");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Plex";src:url(/fonts/plex-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Plex";src:url(/fonts/plex-500-normal.woff2) format("woff2");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Plex";src:url(/fonts/plex-600-normal.woff2) format("woff2");font-weight:600;font-style:normal;font-display:swap}
 /* metric-adjusted fallbacks to limit layout shift while fonts load */
 @font-face{font-family:"Newsreader Fallback";src:local("Georgia"),local("Times New Roman");size-adjust:94%;ascent-override:96%;descent-override:26%}
 @font-face{font-family:"Plex Fallback";src:local("Arial"),local("Helvetica");size-adjust:104%;ascent-override:98%;descent-override:26%;line-gap-override:0%}

@@ -65,3 +65,7 @@ A sharp, slightly dry professional talking to a busy physician or consultant.
 - Minimal sticky header; on mobile a `<details>` menu (no JS).
 - Visible focus rings, skip link, accessible labels, 48px form targets.
 - Considered 404, print stylesheet, preloaded fonts with metric-matched fallbacks.
+
+Font files are subset to the characters the site uses and pinned to opsz 36, weight 380–460
+(~105 KB total). If new copy introduces unusual characters (accents, symbols), re-subset from the
+original @fontsource packages or those glyphs will fall back to Georgia/Arial.
