@@ -1,6 +1,6 @@
 {
   "installCommand": "npm install --no-audit --no-fund",
-  "buildCommand": "(pip3 install --quiet fonttools brotli || pip3 install --quiet --user fonttools brotli || echo 'fonttools unavailable') && python3 build.py",
+  "buildCommand": "(python3 -m venv /tmp/fontenv && /tmp/fontenv/bin/pip install --quiet fonttools brotli && /tmp/fontenv/bin/python build.py) || python3 build.py",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": true
